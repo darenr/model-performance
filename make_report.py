@@ -119,8 +119,20 @@ def probabilistic_binary_classification(bcancer_ref, bcancer_cur):
     classification_report.run(reference_data=bcancer_ref, current_data=bcancer_cur)
     return classification_report
 
+def get_evidently_html(evidently_object) -> str:
+    """Returns the rendered EvidentlyAI report/metric as HTML
+    """
+    import tempfile
 
-def get_dp_report(evidently_html, report_file_name="report.html"):
+    with tempfile.NamedTemporaryFile() as tmp:
+        evidently_object.save_html(tmp.name)
+        with open(tmp.name) as fh:
+            return fh.read()
+        
+def get_dp_report(evidently_report, report_file_name="report.html"):
+    
+    evidently_html = get_evidently_html(evidently_report)
+    
     dp_report = dp.Report(
         dp.Markdown("## Classification Report"),
         dp.HTML(evidently_html),
