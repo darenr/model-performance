@@ -1,0 +1,11 @@
+name: metrics
+
+dependencies:
+  - conda-forge::python=3.9
+  - conda-forge::pandas
+  - conda-forge::numpy
+  - conda-forge::pip
+  - pip:
+      - scikit-learn
+      - evidently
+      - datapane
