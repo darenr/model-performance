@@ -53,6 +53,7 @@ def load_data():
     bcancer_label_cur = bcancer_cur.copy(deep=True)
 
     model = ensemble.RandomForestClassifier(random_state=1, n_estimators=10)
+
     model.fit(bcancer_ref[bcancer_data.feature_names.tolist()], bcancer_ref.target)
 
     bcancer_ref["prediction"] = model.predict_proba(
@@ -69,10 +70,10 @@ def load_data():
         bcancer_label_cur[bcancer_data.feature_names.tolist()]
     )
 
-    return bcancer_label_ref, bcancer_label_cur
+    return bcancer_ref, bcancer_cur, bcancer_label_ref, bcancer_label_cur
 
 
-def label_binary_classification(bcancer_label_ref, bcancer_label_cur):
+def label_binary_classification(model_label_ref, model_label_cur):
     classification_report = Report(
         metrics=[
             ClassificationQualityMetric(),
@@ -81,21 +82,18 @@ def label_binary_classification(bcancer_label_ref, bcancer_label_cur):
             ConflictPredictionMetric(),
             ClassificationConfusionMatrix(),
             ClassificationQualityByClass(),
-            ClassificationQualityByFeatureTable(
-                columns=["mean area", "fractal dimension error"]
-            ),
         ],
         options=[get_color_scheme()],
     )
 
     classification_report.run(
-        reference_data=bcancer_label_ref, current_data=bcancer_label_cur
+        reference_data=model_label_ref, current_data=model_label_cur
     )
 
     return classification_report
 
 
-def probabilistic_binary_classification(bcancer_ref, bcancer_cur):
+def probabilistic_binary_classification(model_ref, model_cur):
     classification_report = Report(
         metrics=[
             ClassificationQualityMetric(),
@@ -109,33 +107,40 @@ def probabilistic_binary_classification(bcancer_ref, bcancer_cur):
             ClassificationRocCurve(),
             ClassificationPRCurve(),
             ClassificationPRTable(),
-            ClassificationQualityByFeatureTable(
-                columns=["mean area", "fractal dimension error"]
-            ),
         ],
         options=[get_color_scheme()],
     )
 
-    classification_report.run(reference_data=bcancer_ref, current_data=bcancer_cur)
+    classification_report.run(reference_data=model_ref, current_data=model_cur)
     return classification_report
 
-def get_evidently_html(evidently_object) -> str:
-    """Returns the rendered EvidentlyAI report/metric as HTML
-    """
-    import tempfile
 
+def get_evidently_html(evidently_object) -> str:
+    """Returns the rendered EvidentlyAI report/metric as HTML"""
+    import tempfile
+    
     with tempfile.NamedTemporaryFile() as tmp:
         evidently_object.save_html(tmp.name)
-        with open(tmp.name) as fh:
+        with open(tmp.name, "r", encoding="utf-8") as fh:
             return fh.read()
-        
-def get_dp_report(evidently_report, report_file_name="report.html"):
-    
-    evidently_html = get_evidently_html(evidently_report)
-    
+
+
+
+def get_dp_report(
+    evidently_report_label, evidently_report_proba, report_file_name="report.html"
+):
+
     dp_report = dp.Report(
-        dp.Markdown("## Classification Report"),
-        dp.HTML(evidently_html),
+        dp.HTML("<h1>My Classification Report</h1>"),
+        dp.Divider(),
+        dp.Select(
+            dp.HTML(get_evidently_html(evidently_report_label), label="Label Metrics"),
+            dp.HTML(
+                get_evidently_html(evidently_report_proba),
+                label="Probabilistic Metrics",
+            ),
+            type=dp.SelectType.TABS,
+        ),
     ).save(
         path=report_file_name,
         formatting=dp.AppFormatting(
@@ -144,3 +149,20 @@ def get_dp_report(evidently_report, report_file_name="report.html"):
             font=dp.FontChoice.SANS,
         ),
     )
+
+
+if __name__ == "__main__":
+    model_proba_ref, model_proba_cur, model_label_ref, model_label_cur = load_data()
+
+    evidently_report_proba = probabilistic_binary_classification(
+        model_proba_ref, model_proba_cur
+    )
+    evidently_report_label = label_binary_classification(
+        model_label_ref, model_label_cur
+    )
+
+    get_dp_report(
+        evidently_report_label, evidently_report_proba, report_file_name="report.html"
+    )
+
+    print(get_evidently_html(evidently_report_label))
