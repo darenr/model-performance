@@ -5,22 +5,12 @@ from sklearn import datasets
 from sklearn import ensemble
 from sklearn import model_selection
 
-from evidently import ColumnMapping
-from evidently.options import ColorOptions
-from evidently.report import Report
+import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn import datasets
+from sklearn_evaluation import ClassifierEvaluator
 
-from evidently.metrics import ConflictTargetMetric
-from evidently.metrics import ConflictPredictionMetric
-from evidently.metrics import ClassificationQualityMetric
-from evidently.metrics import ClassificationClassBalance
-from evidently.metrics import ClassificationConfusionMatrix
-from evidently.metrics import ClassificationQualityByClass
-from evidently.metrics import ClassificationClassSeparationPlot
-from evidently.metrics import ClassificationProbDistribution
-from evidently.metrics import ClassificationRocCurve
-from evidently.metrics import ClassificationPRCurve
-from evidently.metrics import ClassificationPRTable
-from evidently.metrics import ClassificationQualityByFeatureTable
 
 import datapane as dp
 
@@ -42,103 +32,24 @@ def get_color_scheme():
     )
 
 
-def load_data():
-    bcancer_data = datasets.load_breast_cancer(as_frame="auto")
-    bcancer = bcancer_data.frame
-
-    bcancer_ref = bcancer.sample(n=300, replace=False)
-    bcancer_cur = bcancer.sample(n=200, replace=False)
-
-    bcancer_label_ref = bcancer_ref.copy(deep=True)
-    bcancer_label_cur = bcancer_cur.copy(deep=True)
-
-    model = ensemble.RandomForestClassifier(random_state=1, n_estimators=10)
-
-    model.fit(bcancer_ref[bcancer_data.feature_names.tolist()], bcancer_ref.target)
-
-    bcancer_ref["prediction"] = model.predict_proba(
-        bcancer_ref[bcancer_data.feature_names.tolist()]
-    )[:, 1]
-    bcancer_cur["prediction"] = model.predict_proba(
-        bcancer_cur[bcancer_data.feature_names.tolist()]
-    )[:, 1]
-
-    bcancer_label_ref["prediction"] = model.predict(
-        bcancer_label_ref[bcancer_data.feature_names.tolist()]
-    )
-    bcancer_label_cur["prediction"] = model.predict(
-        bcancer_label_cur[bcancer_data.feature_names.tolist()]
-    )
-
-    return bcancer_ref, bcancer_cur, bcancer_label_ref, bcancer_label_cur
-
-
-def label_binary_classification(model_label_ref, model_label_cur):
-    classification_report = Report(
-        metrics=[
-            ClassificationQualityMetric(),
-            ClassificationClassBalance(),
-            ConflictTargetMetric(),
-            ConflictPredictionMetric(),
-            ClassificationConfusionMatrix(),
-            ClassificationQualityByClass(),
-        ],
-        options=[get_color_scheme()],
-    )
-
-    classification_report.run(
-        reference_data=model_label_ref, current_data=model_label_cur
-    )
-
-    return classification_report
-
-
-def probabilistic_binary_classification(model_ref, model_cur):
-    classification_report = Report(
-        metrics=[
-            ClassificationQualityMetric(),
-            ClassificationClassBalance(),
-            ConflictTargetMetric(),
-            ConflictPredictionMetric(),
-            ClassificationConfusionMatrix(),
-            ClassificationQualityByClass(),
-            ClassificationClassSeparationPlot(),
-            ClassificationProbDistribution(),
-            ClassificationRocCurve(),
-            ClassificationPRCurve(),
-            ClassificationPRTable(),
-        ],
-        options=[get_color_scheme()],
-    )
-
-    classification_report.run(reference_data=model_ref, current_data=model_cur)
-    return classification_report
-
-
-def get_evidently_html(evidently_object) -> str:
-    """Returns the rendered EvidentlyAI report/metric as HTML"""
+def get_report_html(report) -> str:
+    """Returns the rendered object report/metric as HTML"""
     import tempfile
-    
+
     with tempfile.NamedTemporaryFile() as tmp:
-        evidently_object.save_html(tmp.name)
-        with open(tmp.name, "r", encoding="utf-8") as fh:
+        report.save(tmp.name)
+        with open(tmp.name) as fh:
             return fh.read()
 
 
-
-def get_dp_report(
-    evidently_report_label, evidently_report_proba, report_file_name="report.html"
-):
+def generate_datapane_report(report_html, report_file_name="report.html"):
 
     dp_report = dp.Report(
         dp.HTML("<h1>My Classification Report</h1>"),
         dp.Divider(),
         dp.Select(
-            dp.HTML(get_evidently_html(evidently_report_label), label="Label Metrics"),
-            dp.HTML(
-                get_evidently_html(evidently_report_proba),
-                label="Probabilistic Metrics",
-            ),
+            dp.HTML(report_html, label="Label Metrics"),
+            dp.HTML("TODO: Add more metrics here", label="TODO"),
             type=dp.SelectType.TABS,
         ),
     ).save(
@@ -151,18 +62,34 @@ def get_dp_report(
     )
 
 
+def rf_model(X_train, X_test, y_train, y_test) -> ClassifierEvaluator:
+    est = RandomForestClassifier(n_estimators=5)
+    est.fit(X_train, y_train)
+    y_pred = est.predict(X_test)
+    y_score = est.predict_proba(X_test)
+    feature_list = range(4)
+    target_names = ["setosa", "versicolor", "virginica"]
+
+    return ClassifierEvaluator(
+        est,
+        y_test,
+        y_pred,
+        y_score,
+        feature_list,
+        target_names,
+        "RandomForestClassifier",
+    )
+
+
 if __name__ == "__main__":
-    model_proba_ref, model_proba_cur, model_label_ref, model_label_cur = load_data()
+    
+    # https://sklearn-evaluation.ploomber.io/en/latest/comparison/report.html
 
-    evidently_report_proba = probabilistic_binary_classification(
-        model_proba_ref, model_proba_cur
-    )
-    evidently_report_label = label_binary_classification(
-        model_label_ref, model_label_cur
-    )
+    iris = datasets.load_iris()
+    X = iris.data
+    y = iris.target
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
 
-    get_dp_report(
-        evidently_report_label, evidently_report_proba, report_file_name="report.html"
+    generate_datapane_report(
+        get_report_html(rf_model(X_train, X_test, y_train, y_test).make_report())
     )
-
-    print(get_evidently_html(evidently_report_label))
