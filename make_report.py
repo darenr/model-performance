@@ -42,18 +42,14 @@ def get_report_html(report) -> str:
             return fh.read()
 
 
-def generate_datapane_report(report_html, report_file_name="report.html"):
+def generate_datapane_report(report_html1, report_html2 ,report_file_name="report.html"):
 
     dp_report = dp.Report(
         dp.HTML("<h1>My Classification Report</h1>"),
         dp.Divider(),
         dp.Select(
-            dp.HTML(report_html, label="Label Metrics"),
-            dp.HTML('''
-                    <svg width="400" height="110">
-  <rect width="300" height="100" style="fill:rgb(0,0,255);stroke-width:3;stroke:rgb(0,0,0)" />
-</svg>'''
-, label="TODO"),
+            dp.HTML(report_html1, label="RF5 Metrics"),
+            dp.HTML(report_html2, label="RF100 Metrics"),
             type=dp.SelectType.TABS,
         ),
     ).save(
@@ -66,7 +62,7 @@ def generate_datapane_report(report_html, report_file_name="report.html"):
     )
 
 
-def rf_model(X_train, X_test, y_train, y_test) -> ClassifierEvaluator:
+def rf5_model(X_train, X_test, y_train, y_test) -> ClassifierEvaluator:
     est = RandomForestClassifier(n_estimators=5)
     est.fit(X_train, y_train)
     y_pred = est.predict(X_test)
@@ -81,10 +77,27 @@ def rf_model(X_train, X_test, y_train, y_test) -> ClassifierEvaluator:
         y_score,
         feature_list,
         target_names,
-        "RandomForestClassifier",
+        "RandomForestClassifier 5 Estimators",
     )
 
+def rf5_model(X_train, X_test, y_train, y_test) -> ClassifierEvaluator:
+    est = RandomForestClassifier(n_estimators=100)
+    est.fit(X_train, y_train)
+    y_pred = est.predict(X_test)
+    y_score = est.predict_proba(X_test)
+    feature_list = range(4)
+    target_names = ["setosa", "versicolor", "virginica"]
 
+    return ClassifierEvaluator(
+        est,
+        y_test,
+        y_pred,
+        y_score,
+        feature_list,
+        target_names,
+        "RandomForestClassifier 100 Estimators",
+    )
+    
 if __name__ == "__main__":
     
     # https://sklearn-evaluation.ploomber.io/en/latest/comparison/report.html
@@ -95,5 +108,6 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
 
     generate_datapane_report(
-        get_report_html(rf_model(X_train, X_test, y_train, y_test).make_report())
+        get_report_html(rf5_model(X_train, X_test, y_train, y_test).make_report()),
+        get_report_html(rf100_model(X_train, X_test, y_train, y_test).make_report()),
     )
