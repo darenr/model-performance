@@ -80,7 +80,7 @@ def rf5_model(X_train, X_test, y_train, y_test) -> ClassifierEvaluator:
         "RandomForestClassifier 5 Estimators",
     )
 
-def rf5_model(X_train, X_test, y_train, y_test) -> ClassifierEvaluator:
+def rf100_model(X_train, X_test, y_train, y_test) -> ClassifierEvaluator:
     est = RandomForestClassifier(n_estimators=100)
     est.fit(X_train, y_train)
     y_pred = est.predict(X_test)
