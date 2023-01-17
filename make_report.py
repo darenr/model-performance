@@ -49,7 +49,11 @@ def generate_datapane_report(report_html, report_file_name="report.html"):
         dp.Divider(),
         dp.Select(
             dp.HTML(report_html, label="Label Metrics"),
-            dp.HTML("TODO: Add more metrics here", label="TODO"),
+            dp.HTML('''
+                    <svg width="400" height="110">
+  <rect width="300" height="100" style="fill:rgb(0,0,255);stroke-width:3;stroke:rgb(0,0,0)" />
+</svg>'''
+, label="TODO"),
             type=dp.SelectType.TABS,
         ),
     ).save(
